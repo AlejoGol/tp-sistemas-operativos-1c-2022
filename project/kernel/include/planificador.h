@@ -24,8 +24,6 @@ sem_t NO_HAY_PROCESOS_EN_SUSREADY;
 typedef struct {
   t_list *lista_pcbs;
   sem_t cantidad_procesos;
-  // TODO: evaluar si corresponde remover, se cambió por cantidad_procesos
-  // sem_t instancias_disponibles;
   pthread_mutex_t mutex;
 } t_cola_planificacion;
 

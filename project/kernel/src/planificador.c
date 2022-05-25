@@ -23,6 +23,7 @@ int SOCKET_CONEXION_DISPATCH;
 sem_t CONEXION_DISPATCH_DISPONIBLE; // semáforo binario
 sem_t HAY_PCB_DESALOJADO;           // semáforo binario
 sem_t EJECUTAR_ALGORITMO_PCP;       // semaforo binario
+set_t TRANSICION_SUSREADY_READY     // semaforo binario
 // sem_t SE_ELIMINO_PCB_DE_COLA_BLOCKED;
 time_t BEGIN;
 time_t END;
@@ -166,7 +167,7 @@ void iniciar_planificacion() {
   inicializar_grado_multiprogramacion();
   sem_init(&CONEXION_DISPATCH_DISPONIBLE, 0, 0);
   sem_init(&HAY_PCB_DESALOJADO, 0, 0);
-  sem_init(&NO_HAY_PROCESOS_EN_SUSREADY, 0, 1);
+  sem_init(&TRANSICION_SUSREADY_READY, 0, 0);
   COLA_NEW = cola_planificacion_create();
   COLA_READY = cola_planificacion_create();
   COLA_BLOCKED = cola_planificacion_create();
@@ -283,25 +284,35 @@ void *iniciar_largo_plazo() {
   xlog(COLOR_INFO, "Planificador de Largo Plazo: Ejecutando...");
 
   pthread_t th;
-  pthread_create(&th, NULL, plp_pcb_finished, NULL), pthread_detach(th);
+  pthread_create(&th, NULL, plp_pcb_finished, NULL);
+  pthread_detach(th);
 
   while (1) {
-    sem_wait(&(COLA_NEW->cantidad_procesos));
     sem_wait(&HAY_PROCESOS_ENTRANTES);
 
     // xlog(COLOR_BLANCO, "Nuevo proceso Consola ingresar (pcbs=%d)", queue_size(PCBS_PROCESOS_ENTRANTES));
 
     // t_pcb *pcb = (t_pcb *)queue_pop(PCBS_PROCESOS_ENTRANTES);
     // transicion_a_new(pcb);
-    t_pcb *pcb = elegir_pcb_fifo(COLA_NEW);
     // TODO: creo que no tengo que hacer bajar_grado...
     // TODO: me parece que debo usar un wait_condition que compare el valor de  READY contra el grado de
     // multiprogramacion?
     // TODO: después tendrias que chequear SUSREADY+READY
 
-    controlar_procesos_disponibles_en_memoria(1); // Llamado por plp
-    transicion_new_a_ready(pcb), imprimir_cantidad_procesos_disponibles_en_memoria();
+    //controlar_procesos_disponibles_en_memoria(1); // Llamado por plp
 
+    sem_wait(&PROCESOS_DISPONIBLES_EN_MEMORIA);
+    xlog(COLOR_INFO, "Largo Plazo: Se toma una instancia de Grado Multiprogramación");
+
+    if(!list_is_empty(COLA_SUSREADY->lista_pcbs)) {   /* Como tiene mayor prioridad los procesos en susp/ready > new, vemos si hay procesos en dicha cola */
+        sem_post(&TRANSICION_SUSREADY_READY);
+    } else {
+        sem_wait(&(COLA_NEW->cantidad_procesos));
+        t_pcb *pcb = elegir_pcb_fifo(COLA_NEW);
+        transicion_new_a_ready(pcb);
+    }
+
+    imprimir_cantidad_procesos_disponibles_en_memoria();
     // TODO: enviar_solicitud_tabla_paginas(fd_memoria);
 
     // TODO: contemplar cuando el proceso finaliza, por momento habrán memory leaks
@@ -332,18 +343,16 @@ void *iniciar_mediano_plazo() {
   xlog(COLOR_INFO, "Planificador de Mediano Plazo: Ejecutando...");
 
   while (1) {
-    sem_wait(&(COLA_SUSREADY->cantidad_procesos));
-    sleep(5);
+    sem_wait(&TRANSICION_SUSREADY_READY);
     t_pcb *pcb = elegir_pcb_fifo(COLA_SUSREADY);
+    cambiar_estado_pcb(pcb, READY);
+    agregar_pcb_a_cola(pcb, COLA_READY);
 
-    controlar_procesos_disponibles_en_memoria(0); // Llamado por PMP
-    transicion_susready_a_ready(pcb), imprimir_cantidad_procesos_disponibles_en_memoria();
-
-    // TODO: contemplar cuando el proceso finaliza, por momento habrán memory leaks
-    // pcb_destroy(pcb);
+    xlog(COLOR_TAREA,
+        "Se agregó un PCB (pid=%d) de la cola de SUSREADY a la cola de READY (cantidad_pcbs=%d)",
+        pcb->pid,
+        list_size(COLA_READY->lista_pcbs));
   }
-
-  pthread_exit(NULL);
 }
 
 void pmp_suspender_proceso(t_pcb *pcb) {
@@ -506,9 +515,6 @@ void transicion_a_new(t_pcb *pcb) {
   cambiar_estado_pcb(pcb, NEW);
   agregar_pcb_a_cola(pcb, COLA_NEW);
 
-  // sem_post(&(COLA_NEW->instancias_disponibles));
-  // sem_post(&(COLA_NEW->cantidad_procesos));
-
   xlog(COLOR_TAREA,
        "Se agregó un PCB (pid=%d) a la cola de NEW (cantidad_pcbs=%d)",
        pcb->pid,
@@ -564,6 +570,8 @@ void transicion_blocked_a_susready(t_pcb *pcb) {
   cambiar_estado_pcb(pcb, SUSREADY);
   agregar_pcb_a_cola(pcb, COLA_SUSREADY);
 
+  sem_post(&HAY_PROCESOS_ENTRANTES);
+
   if (list_size(COLA_SUSREADY->lista_pcbs) == 1) {
     sem_wait(&NO_HAY_PROCESOS_EN_SUSREADY);
   }
@@ -598,22 +606,16 @@ void transicion_susblocked_a_susready(t_pcb *pcb) {
    */
 }
 
-void transicion_susready_a_ready(t_pcb *pcb) {
-  remover_pcb_de_cola(pcb, COLA_SUSREADY);
+void transicion_susready_a_ready(void* _) {
+  sem_wait(&TRANSICION_SUSREADY_READY);
+  t_pcb *pcb = elegir_pcb_fifo(COLA_SUSREADY);
   cambiar_estado_pcb(pcb, READY);
   agregar_pcb_a_cola(pcb, COLA_READY);
-
-  if (list_size(COLA_SUSREADY->lista_pcbs) == 0) {
-    sem_post(&NO_HAY_PROCESOS_EN_SUSREADY);
-  }
 
   xlog(COLOR_TAREA,
        "Se agregó un PCB (pid=%d) de la cola de SUSREADY a la cola de READY (cantidad_pcbs=%d)",
        pcb->pid,
        list_size(COLA_READY->lista_pcbs));
-  /*
-  sem_post(&(COLA_READY->instancias_disponibles));
-  */
 }
 /*
 void suspender_pcb_bloqueado(t_pcb *pcb) {
