@@ -347,3 +347,24 @@ void llenar_memoria_mock() {
     num_marco += 1;
   }
 }
+
+int ejecutar_reemplazo(){
+  char* algoritmo= config_get_string_value(config, "ALGORITMO_REEMPLAZO");
+  int resultado=0;
+  if(strcmp(algoritmo,"CLOCK")){
+    resultado=ejecutar_clock();
+  }else{
+    resultado=ejecutar_clock_modificado();
+  }
+
+}
+
+int ejecutar_clock{
+  xlog(COLOR_INFO, "Ejecutando Clock...");
+
+}
+
+int ejecutar_clock_modificado{
+    xlog(COLOR_INFO, "Ejecutando Clock modificado...");
+
+}
