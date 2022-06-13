@@ -166,9 +166,9 @@ void decode(t_instruccion* instruccion, t_pcb* pcb, int socket_cliente) {
 
     // int tabla_primer_nivel = *pcb->tabla_primer_nivel;
 
-    // pcb->tabla_primer_nivel = tabla_primer_nivel;
+    pcb->tabla_primer_nivel = 1;
 
-    execute_read_write(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica, NULL);
+    execute_read_write(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica, 0, 1);
   }
 
   else if (strcmp(instruccion->identificador, "WRITE") == 0) {
@@ -177,12 +177,11 @@ void decode(t_instruccion* instruccion, t_pcb* pcb, int socket_cliente) {
     int cant_entradas_por_tabla = 10;
     char** params = string_split(instruccion->params, " ");
     uint32_t dir_logica = atoi(params[0]);
-    void* valor = params[1];
+    uint32_t valor = atoi(params[1]);
     int num_pagina = (float)dir_logica / tam_pagina;
     // uint32_t dir_logica = atoi(instruccion->params);
-    execute_read_write(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica, valor);
+    execute_read_write(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica, valor, 2);
     free(params);
-    free(valor);
   }
 
   else if (strcmp(instruccion->identificador, "COPY") == 0) {
@@ -194,8 +193,9 @@ void decode(t_instruccion* instruccion, t_pcb* pcb, int socket_cliente) {
     uint32_t dir_logica_origen = atoi(params[1]);
     int num_pagina = (float)dir_logica_origen / tam_pagina;
     t_operacion_respuesta_fetch_operands* respuesta_fetch =
-      fetch_operands(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica_origen);
-    execute_read_write(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica_origen, respuesta_fetch->valor);
+      fetch_operands(pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica_origen, 3);
+    execute_read_write(
+      pcb, tam_pagina, cant_entradas_por_tabla, num_pagina, dir_logica_origen, respuesta_fetch->valor, 2);
 
   }
 
@@ -263,7 +263,8 @@ t_operacion_respuesta_fetch_operands* fetch_operands(t_pcb* pcb,
                                                      int tam_pagina,
                                                      int cant_entradas_por_tabla,
                                                      int num_pagina,
-                                                     uint32_t dir_logica) {
+                                                     uint32_t dir_logica,
+                                                     int operacion) {
   log_info(logger, "La pagina no se ecnuentra en la TLB, enviando solicitud a Memoria");
   int cod_op = 0;
 
@@ -285,7 +286,8 @@ t_operacion_respuesta_fetch_operands* fetch_operands(t_pcb* pcb,
 
   // ACCESO PARA OBTENER MARCO
   t_solicitud_marco* read_marco = malloc(sizeof(t_solicitud_marco));
-  obtener_numero_marco(read_marco, num_pagina, cant_entradas_por_tabla, respuesta_operacion->num_tabla_segundo_nivel);
+  obtener_numero_marco(
+    read_marco, num_pagina, cant_entradas_por_tabla, respuesta_operacion->num_tabla_segundo_nivel, operacion);
   free(read_marco);
 
   // RECIBO RESPUESTA DE MEMORIA
@@ -321,7 +323,8 @@ void execute_read_write(t_pcb* pcb,
                         int cant_entradas_por_tabla,
                         int num_pagina,
                         uint32_t dir_logica,
-                        void* valor) {
+                        uint32_t valor,
+                        int operacion) {
   log_info(logger, "Leyendo de TLB");
   bool acierto_tlb = esta_en_tlb(num_pagina);
   int cod_op = 0;
@@ -352,7 +355,8 @@ void execute_read_write(t_pcb* pcb,
 
     // ACCESO PARA OBTENER MARCO
     t_solicitud_marco* read_marco = malloc(sizeof(t_solicitud_marco));
-    obtener_numero_marco(read_marco, num_pagina, cant_entradas_por_tabla, respuesta_operacion->num_tabla_segundo_nivel);
+    obtener_numero_marco(
+      read_marco, num_pagina, cant_entradas_por_tabla, respuesta_operacion->num_tabla_segundo_nivel, operacion);
     free(read_marco);
 
     // RECIBO RESPUESTA DE MEMORIA
@@ -363,11 +367,11 @@ void execute_read_write(t_pcb* pcb,
     respuesta_operacion_marco = obtener_respuesta_solicitud_marco(paquete_respuesta_marco);
     printf("Num marco: %d\n", respuesta_operacion_marco->num_marco);
 
-    if (valor == NULL) { // LECTURA DE DATO
+    if (operacion == 1) { // LECTURA DE DATO
       // ACCESO PARA OBTENER DATO FISICO
       t_solicitud_dato_fisico* read_dato = malloc(sizeof(t_solicitud_dato_fisico));
       obtener_dato_fisico(read_dato, respuesta_operacion_marco->num_marco, num_pagina, tam_pagina, dir_logica);
-      free(read_marco);
+      free(read_dato);
 
       // RECIBO RESPUESTA DE MEMORIA
       xlog(COLOR_INFO, "Recibiendo valor desde Memoria ");
@@ -375,13 +379,12 @@ void execute_read_write(t_pcb* pcb,
       t_paquete* paquete_respuesta_dato = recibir_paquete(socket_memoria);
       t_respuesta_dato_fisico* respuesta_operacion_dato = malloc(sizeof(t_respuesta_dato_fisico));
       respuesta_operacion_dato = obtener_respuesta_solicitud_dato_fisico(paquete_respuesta_dato);
-      char* dato = malloc(4);
-      memcpy(dato, respuesta_operacion_dato->dato_buscado, 4);
-      printf("DATO: %s\n", dato);
+      printf("DATO: %d\n", respuesta_operacion_dato->dato_buscado);
 
     } else { // ESCRITURA DE DATO
       t_escritura_dato_fisico* write_dato = malloc(sizeof(t_escritura_dato_fisico));
-      escribir_dato_fisico(write_dato, respuesta_operacion_marco->num_marco, num_pagina, tam_pagina, dir_logica, valor);
+      escribir_dato_fisico(
+        write_dato, respuesta_operacion_marco->num_marco, num_pagina, tam_pagina, dir_logica, write_dato->valor);
       free(write_dato);
 
       // RECIBO RESPUESTA DE MEMORIA
@@ -410,7 +413,7 @@ void execute_read_write(t_pcb* pcb,
     t_paquete* paquete_respuesta = recibir_paquete(socket_memoria);
     t_respuesta_dato_fisico* respuesta_operacion = malloc(sizeof(t_respuesta_dato_fisico));
     respuesta_operacion = obtener_respuesta_solicitud_dato_fisico(paquete_respuesta);
-    printf("VALOR BUSCADO: %s\n", respuesta_operacion->dato_buscado);
+    printf("VALOR BUSCADO: %d\n", respuesta_operacion->dato_buscado);
   }
 }
 
@@ -445,7 +448,7 @@ void escribir_dato_fisico(t_escritura_dato_fisico* escritura_dato_fisico,
                           int num_pagina,
                           int tam_pagina,
                           uint32_t dir_logica,
-                          void* valor) {
+                          uint32_t valor) {
   armar_escritura_dato_fisico(escritura_dato_fisico, num_marco, num_pagina, tam_pagina, dir_logica, valor);
   escritura_dato_fisico->socket = socket_memoria;
   /*t_paquete* paquete_con_direccion_a_leer = paquete_create();
@@ -460,8 +463,9 @@ void escribir_dato_fisico(t_escritura_dato_fisico* escritura_dato_fisico,
 void obtener_numero_marco(t_solicitud_marco* solicitud_marco,
                           int num_pagina,
                           int cant_entradas_por_tabla,
-                          int numero_tabla_segundo_nivel) {
-  armar_solicitud_marco(solicitud_marco, num_pagina, cant_entradas_por_tabla, numero_tabla_segundo_nivel);
+                          int numero_tabla_segundo_nivel,
+                          int operacion) {
+  armar_solicitud_marco(solicitud_marco, num_pagina, cant_entradas_por_tabla, numero_tabla_segundo_nivel, operacion);
   solicitud_marco->socket = socket_memoria;
   /*t_paquete* paquete_con_direccion_a_leer = paquete_create();
   paquete_add_solicitud_marco(paquete_con_direccion_a_leer, solicitud_marco);
@@ -501,9 +505,11 @@ void armar_solicitud_tabla_segundo_nivel(t_solicitud_segunda_tabla* solicitud_ta
 void armar_solicitud_marco(t_solicitud_marco* solicitud_marco,
                            int num_pagina,
                            int cant_entradas_por_tabla,
-                           int numero_tabla_segundo_nivel) {
+                           int numero_tabla_segundo_nivel,
+                           int operacion) {
   solicitud_marco->num_tabla_segundo_nivel = numero_tabla_segundo_nivel;
   solicitud_marco->entrada_segundo_nivel = num_pagina % cant_entradas_por_tabla;
+  solicitud_marco->operacion = operacion;
   xlog(COLOR_INFO, "SOLICITUD MARCO: TABLA SEGUNDO NIVEL: %d", solicitud_marco->entrada_segundo_nivel);
 }
 
@@ -525,10 +531,9 @@ void armar_escritura_dato_fisico(t_escritura_dato_fisico* escritura_dato_fisico,
                                  int num_pagina,
                                  int tam_pagina,
                                  uint32_t dir_logica,
-                                 void* valor) {
+                                 uint32_t valor) {
   int desplazamiento = dir_logica - (num_pagina * tam_pagina);
   escritura_dato_fisico->dir_fisica = num_marco * tam_pagina + desplazamiento;
-  escritura_dato_fisico->size_valor = strlen(valor) + 1;
   escritura_dato_fisico->valor = valor;
 }
 
@@ -556,7 +561,7 @@ bool esta_en_tlb(int num_pagina) {
   bool es_la_pagina(t_entrada_tlb * contenido_tlb) {
     return contenido_tlb->pagina == num_pagina;
   }
-  return list_any_satisfy(tlb, es_la_pagina);
+  return list_any_satisfy(tlb, (void*)es_la_pagina);
 }
 
 
