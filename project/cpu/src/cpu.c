@@ -233,7 +233,7 @@ void execute_exit(t_pcb* pcb, int socket_cliente) {
 void execute_no_op() {
   int retardo = config_get_int_value(config, "RETARDO_NOOP");
   xlog(COLOR_INFO, "Retardo de NO_OP en milisegundos: %d", retardo);
-  usleep(retardo * 1000);
+  // usleep(retardo * 1000);
 }
 
 void execute_io(t_pcb* pcb, t_instruccion* instruccion, int socket_cliente) {
@@ -339,7 +339,7 @@ void execute_read_write(t_pcb* pcb,
     log_info(logger, "La pagina no se ecnuentra en la TLB, enviando solicitud a Memoria");
 
     // ACCESO PARA OBTENER TABLA SEGUNDO NIVEL
-    pcb->tabla_primer_nivel = 1; //PARAMETRIZAR
+    pcb->tabla_primer_nivel = 1; // PARAMETRIZAR
     t_solicitud_segunda_tabla* read = malloc(sizeof(t_solicitud_segunda_tabla));
     obtener_numero_tabla_segundo_nivel(read, pcb, num_pagina, cant_entradas_por_tabla);
     free(read);

@@ -9,19 +9,35 @@ void reservar_marcos_mock() {
   marcos_prueba_clock = list_create();
 
   marco1->ocupado = 1;
-  marco1->pid = 1;
+  marco1->pid = 0;
   list_add_in_index(tabla_marcos, 0, marco1);
 
   marco2->ocupado = 1;
-  marco2->pid = 1;
+  marco2->pid = 0;
   list_add_in_index(tabla_marcos, 1, marco2);
 
   marco3->ocupado = 1;
-  marco3->pid = 1;
+  marco3->pid = 0;
   list_add_in_index(tabla_marcos, 2, marco3);
+
+  t_tabla_primer_nivel* tabla_1 = malloc(sizeof(t_tabla_primer_nivel));
+
+  tabla_1->num_tabla = 1;
+  tabla_1->pid = 0;
+  tabla_1->entradas = list_create();
+
+
+  t_entrada_tabla_primer_nivel* entrada0 = malloc(sizeof(t_entrada_tabla_primer_nivel));
+
+  entrada0->entrada_primer_nivel = 1;
+  entrada0->num_tabla_segundo_nivel = 2;
+
+  list_add(tabla_1->entradas, entrada0);
 
 
   t_tabla_segundo_nivel* tabla = malloc(sizeof(t_tabla_segundo_nivel));
+  tabla->num_tabla = 2;
+  tabla->pid = 0;
   t_list* entradas = list_create();
 
   t_entrada_tabla_segundo_nivel* entrada1 = malloc(sizeof(t_entrada_tabla_segundo_nivel));
@@ -30,32 +46,32 @@ void reservar_marcos_mock() {
   t_entrada_tabla_segundo_nivel* entrada4 = malloc(sizeof(t_entrada_tabla_segundo_nivel));
   t_entrada_tabla_segundo_nivel* entrada5 = malloc(sizeof(t_entrada_tabla_segundo_nivel));
 
-  entrada1->entrada_segundo_nivel = 1;
+  entrada1->entrada_segundo_nivel = 0;
   entrada1->num_marco = 3;
   entrada1->bit_uso = 1;
   entrada1->bit_modif = 0;
   entrada1->bit_presencia = 1;
 
-  entrada2->entrada_segundo_nivel = 2;
+  entrada2->entrada_segundo_nivel = 1;
   entrada2->num_marco = 1;
   entrada2->bit_uso = 1;
   entrada2->bit_modif = 0;
   entrada2->bit_presencia = 1;
 
-  entrada3->entrada_segundo_nivel = 3;
+  entrada3->entrada_segundo_nivel = 2;
   entrada3->num_marco = 2;
   entrada3->bit_uso = 1;
   entrada3->bit_modif = 0;
   entrada3->bit_presencia = 1;
 
-  entrada4->entrada_segundo_nivel = 4;
+  entrada4->entrada_segundo_nivel = 3;
   entrada4->num_marco = -1;
   entrada4->bit_uso = 0;
   entrada4->bit_modif = 0;
   entrada4->bit_presencia = 0;
 
 
-  entrada5->entrada_segundo_nivel = 5;
+  entrada5->entrada_segundo_nivel = 4;
   entrada5->num_marco = -1;
   entrada5->bit_uso = 0;
   entrada5->bit_modif = 0;
@@ -68,6 +84,10 @@ void reservar_marcos_mock() {
   list_add(entradas, entrada5);
 
   tabla->entradas = entradas;
+
+  list_add(lista_tablas_segundo_nivel, tabla);
+
+  dictionary_put(diccionario_tablas, "1", tabla_1);
 
   t_marco_asignado* marco_involucrado1 = malloc(sizeof(t_marco_asignado));
   marco_involucrado1->marco = marco1->num_marco;
@@ -107,5 +127,5 @@ void inicializar_estructuras() {
 
   // mostrar_tabla_marcos();
   // mem_hexdump(memoria_principal, size_memoria_principal);
-  inicializar_proceso(0, 4, 500);
+  // inicializar_proceso(0, 4, 500);
 }

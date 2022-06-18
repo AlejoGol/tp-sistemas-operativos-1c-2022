@@ -7,7 +7,9 @@
 void* reservar_memoria_inicial(int size_memoria_total) {
   void* memoria_total = malloc(size_memoria_total);
 
-  memset(memoria_total, 0, size_memoria_total);
+  int valor = 5;
+
+  memset(memoria_total, valor, size_memoria_total);
 
   return memoria_total;
 }
@@ -264,7 +266,7 @@ void* manejar_nueva_conexion(void* args) {
 }
 
 int escribir_dato(uint32_t dir_fisica, uint32_t valor) {
-  // Busco a que proceso pertenece
+  // TODO: ESCRIBIR EN EL MARCO DE MEMORIA CORRESPONDIENTE
 
   int resultado = 0;
 
@@ -289,8 +291,8 @@ int buscar_marco(int num_tabla_segundo_nivel, int entrada_segundo_nivel) {
 }
 
 bool marcos_disponibles_para_proceso(int pid) {
-  int es_el_proceso(int proc) {
-    return proc == pid;
+  int es_el_proceso(t_marco * marco) {
+    return marco->pid == pid;
   }
 
   int cant_marcos_asignados_a_proceso = list_count_satisfying(tabla_marcos, (void*)es_el_proceso);
@@ -376,8 +378,8 @@ int inicializar_tabla_marcos() {
   while (tam_tabla < cant_marcos) {
     t_marco* marco = malloc(sizeof(t_marco));
     marco->num_marco = tam_tabla;
-    marco->direccion = 0;
-    marco->pid = 0;
+    marco->direccion = -1;
+    marco->pid = -1;
     marco->ocupado = 0;
     list_add(tabla_marcos, marco);
     tam_tabla++;
@@ -392,21 +394,25 @@ void inicializar_proceso(int pid,
   int tam_acumulado = 0;
   int cant_marcos_asignados = 0;
   int marcos_por_proceso = config_get_int_value(config, "MARCOS_POR_PROCESO");
+  int num_tabla_primer_nivel = 1;
+  int num_tabla_segundo_nivel = 1;
+
 
   t_tabla_primer_nivel* tabla_primer_nivel = malloc(sizeof(t_tabla_primer_nivel));
   // tabla_primer_nivel->num_tabla = generar_numero_tabla();
-  tabla_primer_nivel->num_tabla = 1; // COMENTAR ESTO Y DESCOMENTAR LA DE ARRIBA: SOLO PARA PRUEBAS
+  tabla_primer_nivel->num_tabla = num_tabla_primer_nivel; // COMENTAR ESTO Y DESCOMENTAR LA DE ARRIBA: SOLO PARA PRUEBAS
   tabla_primer_nivel->entradas = list_create();
   tabla_primer_nivel->pid = pid;
 
   for (int i = 0; i < entradas_por_tabla; i++) {
     t_entrada_tabla_primer_nivel* entrada_primer_nivel = malloc(sizeof(t_entrada_tabla_segundo_nivel));
-    entrada_primer_nivel->entrada_primer_nivel = 1; // TODO:
+    entrada_primer_nivel->entrada_primer_nivel = i; // TODO:
 
     t_list* tablas_segundo_nivel = list_create();
     t_tabla_segundo_nivel* tabla_segundo_nivel = malloc(sizeof(t_tabla_segundo_nivel));
     // tabla_segundo_nivel->num_tabla = generar_numero_tabla();
-    tabla_segundo_nivel->num_tabla = 2; // COMENTAR ESTO Y DESCOMENTAR LA DE ARRIBA: SOLO PARA PRUEBAS
+    tabla_segundo_nivel->num_tabla =
+      num_tabla_segundo_nivel; // COMENTAR ESTO Y DESCOMENTAR LA DE ARRIBA: SOLO PARA PRUEBAS
     tabla_segundo_nivel->pid = pid;
     tabla_segundo_nivel->entradas = list_create();
     for (int j = 0; j < entradas_por_tabla; j++) {
@@ -477,14 +483,19 @@ void llenar_memoria_mock() {
 t_tabla_primer_nivel* encontrar_tabla(int pid) {
   int i = 0;
   t_tabla_primer_nivel* tabla = malloc(sizeof(t_tabla_primer_nivel));
-  while (i < dictionary_size(diccionario_tablas)) {
-    tabla = dictionary_get(diccionario_tablas, string_itoa(i));
-    if (tabla->pid == pid) {
-      return tabla;
+  // while (i < dictionary_size(diccionario_tablas)) {
+
+  void devolver_tabla(char* ___, t_tabla_primer_nivel* tabla_actual) {
+    if (tabla_actual->pid == pid) {
+      tabla = tabla_actual;
     }
-    i++;
   }
-  return NULL;
+  dictionary_iterator(diccionario_tablas, (void*)devolver_tabla);
+  // if (tabla->pid == pid) {
+  return tabla;
+  //}
+  // i++;
+  //}
 }
 
 void encontrar_marcos_en_tabla_segundo_nivel(int num_tabla_segundo_nivel, t_list* marcos) {
@@ -547,7 +558,8 @@ t_entrada_tabla_segundo_nivel* ejecutar_clock(t_list* marcos, t_entrada_tabla_se
       break;
     }
 
-    if (puntero_clock + 1 == list_size(marcos)) {
+    if (puntero_clock + 1 ==
+        list_size(marcos)) { // Llegue a la ultiam posicion entonces reseteo el puntero para la  siguiente iteracion
       puntero_clock = 0;
       continue;
     }
