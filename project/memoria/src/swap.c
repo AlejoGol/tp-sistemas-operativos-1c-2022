@@ -201,7 +201,7 @@ void escribir_datos_de_swap_en_marco(t_marco* marco) {
   int j = 0;
   while (i < limite) {
     uint32_t dato = datos[j];
-    escribir_dato(direccion + i, dato);
+    escribir_dato(direccion + i, dato, 0);
     j++;
     i += 4;
   }
@@ -225,7 +225,7 @@ void escribir_marco_en_swap(t_marco* marco) {
   int j = 0;
 
   while (i < limite) {
-    uint32_t dato = buscar_dato_en_memoria(direccion + i);
+    uint32_t dato = buscar_dato_en_memoria(direccion + i, 0);
     datos[j] = dato;
     j++;
     i += 4;

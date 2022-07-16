@@ -122,7 +122,7 @@ void* manejar_nueva_conexion(void* args) {
         uint32_t direccion_fisica = req->dir_fisica;
         free(req);
 
-        uint32_t dato_buscado = buscar_dato_en_memoria(direccion_fisica);
+        uint32_t dato_buscado = buscar_dato_en_memoria(direccion_fisica, 1); // 1 para saber que no viene de swap
 
         t_paquete* paquete_respuesta = paquete_create();
         t_respuesta_dato_fisico* resp = malloc(sizeof(t_respuesta_dato_fisico));
@@ -147,7 +147,7 @@ void* manejar_nueva_conexion(void* args) {
         uint32_t valor = req->valor;
         free(req);
 
-        uint32_t resultado_escritura = escribir_dato(direccion_fisica, valor);
+        uint32_t resultado_escritura = escribir_dato(direccion_fisica, valor, 1); // 1 para saber que no viene de swap
 
         t_paquete* paquete_respuesta = paquete_create();
         t_respuesta_escritura_dato_fisico* resp = malloc(sizeof(t_respuesta_escritura_dato_fisico));
